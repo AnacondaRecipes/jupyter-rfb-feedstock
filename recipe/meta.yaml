@@ -7,48 +7,62 @@ package:
   version: {{ version }}
 
 source:
-  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/jupyter_rfb-{{ version }}.tar.gz
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name|replace("-", "_") }}-{{ version }}.tar.gz
   sha256: 45549b1b36614195f76d33a1c299b21628d5aa4b3b4ed9a4b49b4888c98b2191
 
 build:
   number: 0
-  noarch: python
+  skip: true  # [py<39]
+  script_env:
+    - JUPYTER_PACKAGING_SKIP_NPM=1
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
 
 requirements:
-
   host:
+    - python
+    - pip
     - hatchling
     - hatch-jupyter-builder
-    - jupyterlab
+    - jupyterlab >=3.0.0,<5.0.0
+    # Versions for 'yarn' not specified in pyproject.toml, taken from conda-forge.
     - yarn >=1.22,<2
-    - pip
-    - python {{ python_min }}
   run:
+    - python
     - ipywidgets >=7.6.0,<9.0.0
     - numpy
-    - python >={{ python_min }}
+    # Not in pyproject.toml but recommended for better performance:
+    # https://github.com/vispy/jupyter_rfb/blob/v0.5.3/README.md?plain=1#L39
+    # Without it (or put in 'run_constrained') some tests are failing.
     - pillow
-  run_constrained:
-    - jupyterlab >=3.0
 
 test:
+  source_files:
+    - tests
   imports:
     - jupyter_rfb
   requires:
     - pip
+    - pytest
     - jupyterlab
-    - python {{ python_min }}
   commands:
     - pip check
     - jupyter labextension list
     - jupyter labextension list 1>labextensions 2>&1
     - cat labextensions | grep "jupyter_rfb.*OK.*jupyter_rfb"  # [unix]
+    # test_writing occasionally fails on CI causing PermissionError
+    - pytest -v tests/ -k "not test_writing"
 
 about:
   home: https://github.com/vispy/jupyter_rfb
-  summary: Remote Frame Buffer for Jupyter
   license: MIT
+  license_family: MIT
   license_file: LICENSE
+  summary: Remote Frame Buffer for Jupyter
+  description: |
+    The jupyter_rfb library provides a widget (an ipywidgets subclass) that can be used
+    in the Jupyter notebook and in JupyterLab to implement a remote frame-buffer.
+  dev_url: https://github.com/vispy/jupyter_rfb
+  doc_url: https://jupyter-rfb.readthedocs.io
 
 extra:
   recipe-maintainers:
